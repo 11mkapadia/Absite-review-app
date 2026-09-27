@@ -1,0 +1,17 @@
+{
+  "name": "absite-review-app",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ABSITE review agent: push notifications that open Claude artifacts on tap",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node server.js",
+    "vapid": "node scripts/generate-vapid.js",
+    "notify": "node scripts/notify.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "web-push": "^3.6.7"
+  }
+}

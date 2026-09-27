@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ABSITE Review Alerts</title>
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" href="/icon.svg">
+  <meta name="theme-color" content="#0f172a">
+  <style>
+    :root { --bg: #f8fafc; --fg: #0f172a; --muted: #475569; --accent: #d97706; --card: #fff; }
+    @media (prefers-color-scheme: dark) { :root { --bg: #0f172a; --fg: #f1f5f9; --muted: #94a3b8; --card: #1e293b; } }
+    body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.5 system-ui, sans-serif; }
+    main { max-width: 32rem; margin: 0 auto; padding: 2rem 1rem; }
+    .card { background: var(--card); border-radius: 12px; padding: 1.25rem; }
+    p { color: var(--muted); }
+    button { background: var(--accent); color: #fff; border: 0; border-radius: 8px; padding: .75rem 1.25rem; font-size: 1rem; width: 100%; }
+    button:disabled { opacity: .5; }
+    #status { margin-top: 1rem; min-height: 1.5em; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>ABSITE Review Alerts</h1>
+  <div class="card">
+    <p>Get a push when your Claude ABSITE agent publishes a new review artifact (quiz, study sheet, score report). Tap the notification to open the artifact.</p>
+    <button id="enable">Enable notifications on this device</button>
+    <div id="status" role="status"></div>
+  </div>
+  <p>iPhone: add this page to your Home Screen first (Share → Add to Home Screen), then open it from there.</p>
+</main>
+<script>
+  const btn = document.getElementById('enable');
+  const status = document.getElementById('status');
+  const say = (msg) => (status.textContent = msg);
+
+  function toKey(b64) {
+    const pad = '='.repeat((4 - (b64.length % 4)) % 4);
+    const raw = atob((b64 + pad).replace(/-/g, '+').replace(/_/g, '/'));
+    return Uint8Array.from(raw, (c) => c.charCodeAt(0));
+  }
+
+  async function enable() {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      return say('This browser does not support push notifications.');
+    }
+    btn.disabled = true;
+    try {
+      const reg = await navigator.serviceWorker.register('/sw.js');
+      if ((await Notification.requestPermission()) !== 'granted') {
+        return say('Notifications were blocked. Allow them in site settings and try again.');
+      }
+      const { key } = await (await fetch('/api/vapid-public-key')).json();
+      const sub = (await reg.pushManager.getSubscription()) ||
+        (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: toKey(key) }));
+      const res = await fetch('/api/subscribe', {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(sub),
+      });
+      if (!res.ok) throw new Error((await res.json()).error);
+      say('This device will now get ABSITE artifact notifications.');
+    } catch (err) {
+      say('Could not enable: ' + err.message);
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  btn.addEventListener('click', enable);
+  if (Notification?.permission === 'granted') say('Notifications are allowed. Tap the button to re-register this device.');
+</script>
+</body>
+</html>
